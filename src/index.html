@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Hard Sphere Gas</title>
+  </head>
+  <body>
+    <canvas id="cnvs" width="800" height="800"></canvas>
+
+    <script>
+      const num_particles = 2000; // TODO
+      const canvas_width = 700;
+      const delta_time = 0.001;
+      const particle_radius = 0.006; // Note: side length of canvas is 1.0
+
+      let update_animation;
+      let set_particle;
+      let imageData;
+      let memory;
+      let canvas_size;
+
+      const canvas = document.getElementById("cnvs");
+      const ctx = canvas.getContext("2d");
+
+      function setup_initial_distribution() {
+        let a = -1;
+        let b = 0;
+        let base = Math.ceil(Math.sqrt(num_particles));
+        function grid() {
+          a += 1;
+          if (a >= base) {
+            a = 0;
+            b += 1;
+          }
+          return { x: 0.4*a/base + 0.3, y: 0.4*b/base + 0.3 };
+        }
+
+        for (let i = 0; i < num_particles-1; ++i) {
+          //const {x, y} = grid();
+          const x = Math.random()*0.4 + 0.25;
+          const y = Math.random()*0.4 + 0.25;
+          const vx = Math.random() - 0.5;
+          const vy = Math.random() - 0.5;
+          set_particle(i, x, y, 0.1*vx, 0.1*vy);
+        }
+        set_particle(num_particles-1, 0.5, 0.9, 0, 40);
+      }
+
+      function animate() {
+        update_animation(delta_time);
+        ctx.putImageData(imageData, 0, 0);
+        requestAnimationFrame(animate);
+      }
+
+      const importObject = {
+        env: {
+          logInt: val => console.log(val),
+          logReal: val => console.log(val),
+          logString: (ptr, len) => {
+            const view8 = new Uint8Array(memory.buffer, ptr, len);
+            text = new TextDecoder('utf8').decode(view8);
+            console.log(text);
+          },
+          sqrt_js: (x) => Math.sqrt(x),
+        },
+      };
+
+      WebAssembly.instantiateStreaming(fetch('index.wasm'), importObject)
+        .then((obj) => {
+          // Important to call this first (like ctor)
+          obj.instance.exports.init_animation(num_particles, canvas_width, particle_radius);
+
+          memory = obj.instance.exports.memory;
+          update_animation = obj.instance.exports.update_animation;
+          set_particle = obj.instance.exports.set_particle;
+
+          nbytes = obj.instance.exports.image_nbytes();
+
+          const image_buffer = obj.instance.exports.get_image_buffer();
+          imageData = new ImageData(new Uint8ClampedArray(memory.buffer, image_buffer, nbytes), canvas_width, canvas_width);
+          console.log(`image_buffer = ${image_buffer}`);
+
+          setup_initial_distribution();
+
+          requestAnimationFrame(animate);
+        })
+        .catch((e) => console.log(e));
+    </script>
+  </body>
+</html>
