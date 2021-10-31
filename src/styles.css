@@ -1,0 +1,24 @@
+#canvas-div {
+  display: flex;
+  border: 1px solid black;
+}
+
+#particle-canvas {
+    border: 1px solid red;
+}
+
+#vx-canvas {
+    border: 1px solid green;
+}
+
+#vy-canvas {
+  border: 1px solid green;
+}
+
+#vx-averaged-canvas {
+  border: 1px solid green;
+}
+
+#vy-averaged-canvas {
+border: 1px solid green;
+}

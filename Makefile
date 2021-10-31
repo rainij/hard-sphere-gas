@@ -11,11 +11,11 @@ LD := $(CXX_LINKER)
 
 # FIXME --allow-undefined ist nicht so toll
 # TODO better place for -flto --lto-03
-WASM_CXXFLAGS := --target=wasm32 $(OPTIMIZATION) -nostdlib -flto -fvisibility=hidden
+WASM_CXXFLAGS := --target=wasm32 $(OPTIMIZATION) -nostdlib -flto -fvisibility=hidden -Wall
 WASM_LDFLAGS := --no-entry --allow-undefined --export-dynamic $(OPTIMIZATION) --lto-O3 $(MEMORY)
 #WASM_LDFLAGS := --no-entry --allow-undefined --export-all
 
-TARGETS := dist/index.html dist/index.wasm
+TARGETS := dist/index.html dist/index.js dist/index.wasm dist/barchart.js dist/util.js dist/styles.css
 .PHONY: all clean wat
 
 # For inspection we keep intermediate files:
@@ -29,6 +29,12 @@ llvm-ir: build/memory.s build/animate.s
 all: default wat llvm-ir
 
 dist/index.html: src/index.html
+	cp $^ $@
+
+dist/styles.css: src/styles.css
+	cp $^ $@
+
+dist/%.js: src/%.js
 	cp $^ $@
 
 build/index.wasm: build/animate.o build/memory.o build/collider.o build/util.o
