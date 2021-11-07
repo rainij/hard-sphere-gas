@@ -157,7 +157,7 @@ void init_animation(
   double histogram_width
 ) {
   // This is needed for repeated calls to init_animation:
-  clear_memory();
+  free_all();
 
   Collider collider{nparticles, particle_radius, nbuckets, histogram_width};
 
