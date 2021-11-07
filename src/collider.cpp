@@ -7,8 +7,8 @@
 extern "C" void logReal(double);
 
 
-Collider::Collider(uint N, double particle_radius, uint nbuckets, double histogram_width)
-: N_{N}, nbuckets{nbuckets}, particle_radius{particle_radius}, histogram_width{histogram_width} {
+Collider::Collider(uint nparticles, double particle_radius, uint nbuckets, double histogram_width)
+: N_{nparticles}, nbuckets{nbuckets}, particle_radius{particle_radius}, histogram_width{histogram_width} {
   if (histogram_width <= 0.0) {
     trap("histogram_width must be positive.");
   }
@@ -18,10 +18,10 @@ Collider::Collider(uint N, double particle_radius, uint nbuckets, double histogr
   }
 
   if (N_ != 0) {
-    x_ = (double*) malloc(N * sizeof(double));
-    y_ = (double*) malloc(N * sizeof(double));
-    vx_ = (double*) malloc(N * sizeof(double));
-    vy_ = (double*) malloc(N * sizeof(double));
+    x_ = (double*) malloc(nparticles * sizeof(double));
+    y_ = (double*) malloc(nparticles * sizeof(double));
+    vx_ = (double*) malloc(nparticles * sizeof(double));
+    vy_ = (double*) malloc(nparticles * sizeof(double));
   }
 
   if (nbuckets != 0) {

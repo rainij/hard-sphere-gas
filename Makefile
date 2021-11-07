@@ -15,7 +15,7 @@ WASM_CXXFLAGS := --target=wasm32 $(OPTIMIZATION) -nostdlib -flto -fvisibility=hi
 WASM_LDFLAGS := --no-entry --allow-undefined --export-dynamic $(OPTIMIZATION) --lto-O3 $(MEMORY)
 #WASM_LDFLAGS := --no-entry --allow-undefined --export-all
 
-TARGETS := dist/index.html dist/index.js dist/index.wasm dist/barchart.js dist/util.js dist/styles.css
+TARGETS := dist/index.html dist/index.js dist/index.wasm dist/barchart.js dist/util.js dist/styles.css dist/experiments.js
 .PHONY: all clean wat
 
 # For inspection we keep intermediate files:

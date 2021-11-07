@@ -7,4 +7,6 @@
 WASM_EXPORT void* malloc(uint n);
 WASM_EXPORT void free(void* p) ;
 
+void clear_memory();
+
 #endif // MEMORY_HPP

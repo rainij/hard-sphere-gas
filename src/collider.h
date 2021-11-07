@@ -3,11 +3,11 @@
 
 #include "defs.h"
 
-// TODO improve WASM_EXPORT
-class [[gnu::visibility("default")]] Collider {
+// TODO actually we don't want to export this globally
+class WASM_EXPORT Collider {
 public:
 
-  Collider(uint N = 0, double particle_radius = 0.0, uint nbuckets = 10, double histogram_width = 2.0);
+  Collider(uint nparticles = 0, double particle_radius = 0.0, uint nbuckets = 10, double histogram_width = 3.0);
 
   ~Collider();
 

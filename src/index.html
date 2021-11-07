@@ -19,7 +19,55 @@
       <canvas id="vy-averaged-canvas"></canvas>
     </div>
 
+    <hr>
+
+    <button id="btn-toggle-pause-resume">Resume</button>
+    <button id="btn-reset">Reset</button>
+
+    <!-- Populated in js code -->
+    <select id="select-experiment" onchange="setCurrentExperiment(value)">
+      <option value="">--Choose a predefined experiment--</option>
+    </select>
+
+    <hr>
+
+    <!-- TODO If User input has changed, inform user that he must push Reset. -->
+    <label id="info-box" class="info-box">No messages so far</label>
+
+    <hr>
+
+    <!-- TODO can be populate this from params? -->
+    <form>
+      <label for="nParticles">nParticles:</label>
+      <input type="number" id="nParticles" value="2000" step="100" required>
+
+      <br>
+      <label for="deltaTime">deltaTime:</label>
+      <input type="number" id="deltaTime" value="0.001" step="0.0001" required>
+
+      <br>
+      <label for="particleRadius">particleRadius:</label>
+      <input type="number" id="particleRadius" value="0.002" step="0.001" required>
+
+      <br>
+      <label for="nBuckets">nBuckets:</label>
+      <input type="number" id="nBuckets" value="42" required>
+
+      <br>
+      <label for="histogramWidth">histogramWidth:</label>
+      <input type="number" id="histogramWidth" value="3.0" required>
+
+      <br>
+      <label for="histogramDelay">histogramDelay:</label>
+      <input type="number" id="histogramDelay" value="1" required>
+
+      <br>
+      <label for="averagingWeight">averagingWeight:</label>
+      <input type="number" id="averagingWeight" value="100" step="10" required>
+    </form>
+
     <script type="text/javascript" src="util.js"></script>
+    <script type="text/javascript" src="experiments.js"></script>
     <script type="text/javascript" src="barchart.js"></script>
     <script type="text/javascript" src="index.js"></script>
   </body>

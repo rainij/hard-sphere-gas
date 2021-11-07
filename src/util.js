@@ -59,3 +59,28 @@ const cGauss = 1 / Math.sqrt(2*Math.PI);
 function gauss(x, sigma=1.0) {
   return (cGauss / sigma) * Math.exp(- x * x / 2 / sigma / sigma);
 }
+
+
+class MyError extends Error {}
+
+
+function assertValidFloat(val, min, max, description) {
+  if (typeof(val) !== 'number' || isNaN(val)) {
+    throw new MyError(`assertValidFloat: ${description} is not a number: '${val}'`);
+  }
+
+  if (val < min || val > max) {
+    throw new MyError(`assertValidFloat: ${description} (${val}) out of allowed range [${min}, ${max}].`);
+  }
+}
+
+
+function assertValidInt(val, min, max, description) {
+  if (!Number.isInteger(val)) {
+    throw new MyError(`assertValidInt: ${description} is not an integer: '${val}'`);
+  }
+
+  if (val < min || val > max) {
+    throw new MyError(`assertValidInt: ${description} (${val}) out of allowed range [${min}, ${max}].`);
+  }
+}
