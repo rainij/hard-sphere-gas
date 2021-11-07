@@ -17,3 +17,9 @@ void* malloc(uint n) {
 void free(void* p) {
   // not possible since malloc is too simple
 }
+
+// TODO this is only necessary due to our poor malloc/free implementation.
+// IMPORTANT: All dynamically allocated objects are invalidated after this operation.
+void clear_memory() {
+  bump_pointer = (byte*) &__heap_base;
+}

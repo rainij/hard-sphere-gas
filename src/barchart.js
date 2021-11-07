@@ -79,7 +79,8 @@ class Datas {
 ///////////////////////////////////////////////////////////////////////////////
 
 
-/** @typedef {{
+/**
+ * @typedef {{
  *   canvas: HTMLCanvasElement,
  *   nbuckets: number,
  *   title: string,
@@ -88,21 +89,18 @@ class Datas {
  *   textColor?: string,
  *   barColor?: string,
  *   criticalBarColor?: string,
- * }}
- *
- * BarChartOptions
+ * }} BarChartOptions
  */
 
-/** @typedef {{
+/**
+ * @typedef {{
  *   values: number[],
  *   maxDisplayedValue: number,
  *   gridStepSize: number,
  *   leftBoundary: number,
  *   rightBoundary: number,
  *   graph?: {x: number[], y: number[]},
- * }}
- *
- * Data
+ * }} Data
  */
 
 /**

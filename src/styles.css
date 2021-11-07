@@ -22,3 +22,17 @@
 #vy-averaged-canvas {
 border: 1px solid green;
 }
+
+.info-box {
+  display: inline-block;
+  width: 100%;
+}
+
+label {
+  display: inline-block;
+  width: 150px;
+}
+
+button {
+  width: 100px;
+}

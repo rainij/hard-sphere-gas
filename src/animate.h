@@ -5,9 +5,11 @@
 
 // TODO restructure code to make it more apparent that this is the interface for js.
 
+extern "C" {
+
 WASM_EXPORT void init_animation(
   uint pixel_width,
-  uint num_particles,
+  uint nparticles,
   double particle_radius,
   uint nbuckets,
   double histogram_width
@@ -25,6 +27,8 @@ WASM_EXPORT double vsquare();
 WASM_EXPORT void compute_histogram();
 WASM_EXPORT uint bucket_vx(uint index);
 WASM_EXPORT uint bucket_vy(uint index);
+
+}
 
 
 #endif // COLLISION_HPP

@@ -1,24 +1,17 @@
 // @ts-check
 
-const num_particles = 2000; // TODO nparticles
 const canvas_width = 600;
-const delta_time = 0.001;
-const particle_radius = 0.002; // Note: side length of canvas is 1.0
-const nbuckets = 42;
-const histogram_width = 3.0; // TODO better name
-const maxDisplayedValue = computeHistogramHeight(num_particles, nbuckets, histogram_width);
-const histogramGridStepSize = computeHistogramGridStepSize(maxDisplayedValue);
-const maxAnimateCount = 5;
-const maxAvCount = 50;
 
-console.log('maxDisplayedValue:', maxDisplayedValue);
-
+// TODO put into object, e.g. wasm
 let update_animation;
+let init_animation;
 let compute_histogram;
 let bucket_vx;
 let bucket_vy;
 let set_particle;
 let fix_particles;
+let image_nbytes;
+let image_buffer;
 let imageData;
 /**  @type {WebAssembly.Memory} */
 let memory;
@@ -30,6 +23,26 @@ const graph_of_equilibrium_distribution = {
   /**  @type {number[]} */
   y: [],
 }
+
+/** @type {HTMLSelectElement} */
+// @ts-ignore
+const experimentSelect = document.getElementById('select-experiment');
+/** @type {Experiment} */
+let currentExperiment = null;
+
+/** @type {HTMLLabelElement} */
+// @ts-ignore
+const infoBox = document.getElementById('info-box');
+
+/** @type {HTMLButtonElement} */
+// @ts-ignore
+const btnTogglePause = document.getElementById('btn-toggle-pause-resume');
+/** @type {HTMLButtonElement} */
+// @ts-ignore
+const btnReset = document.getElementById('btn-reset');
+
+btnTogglePause.onclick = onTogglePause;
+btnReset.onclick = onReset;
 
 /** @type {HTMLCanvasElement} */
 // @ts-ignore
@@ -55,160 +68,136 @@ vxCanvas.height = vyCanvas.height = vxAvCanvas.height = vyAvCanvas.height = canv
 
 const paticleCtx = particleCanvas.getContext('2d');
 
-///** @type {Partial<BarChartOptions>} */
-const commonBarChartOptions = {
-  nbuckets,
-  xLabel: '(units of std-dev of v_tot)',
-}
-/** @type {BarChartOptions} */
-const vxBarChartOptions = {
-  canvas: vxCanvas,
-  title: 'Distribution of v_x',
-  ...commonBarChartOptions,
-}
-/** @type {BarChartOptions} */
-const vyBarChartOptions = {
-  canvas: vyCanvas,
-  title: 'Distribution of v_y',
-  ...commonBarChartOptions,
-}
-/** @type {BarChartOptions} */
-const vxAvBarChartOptions = {
-  canvas: vxAvCanvas,
-  title: 'Averaged distr. of v_x',
-  ...commonBarChartOptions,
-}
-/** @type {BarChartOptions} */
-const vyAvBarChartOptions = {
-  canvas: vyAvCanvas,
-  title: 'Averaged distr. of v_y',
-  ...commonBarChartOptions,
-}
-
-const vxBarChart = new BarChart(vxBarChartOptions);
-const vyBarChart = new BarChart(vyBarChartOptions);
-const vxAvBarChart = new BarChart(vxAvBarChartOptions);
-const vyAvBarChart = new BarChart(vyAvBarChartOptions);
+/** @type {BarChart} */
+let vxBarChart = null;
+let vyBarChart = null;
+let vxAvBarChart = null;
+let vyAvBarChart = null;
 
 function setup_initial_distribution() {
-  let a = -1;
-  let b = 0;
-  let base = Math.ceil(Math.sqrt(num_particles));
-  function grid() {
-    a += 1;
-    if (a >= base) {
-      a = 0;
-      b += 1;
-    }
-    return { x: 0.4*a/base + 0.3, y: 0.4*b/base + 0.3 };
-  }
-
-  for (let i = 0; i < num_particles; ++i) {
-    //const {x, y} = grid();
-    const x = Math.random()*0.4 + 0.3;
-    const y = Math.random()*0.4 + 0.3;
-    const vx = 1.0*Math.sqrt(2)*(Math.random()*0.01 + 1.0);
-    const vy = 0.0*(Math.random()*1.0 - 0.5);
-    set_particle(i, x, y, vx, vy);
-  }
-  //set_particle(num_particles-1, 0.1, 0.5, 1, 0);
-
+  currentExperiment.setupDist(currentExperiment.params, set_particle);
   fix_particles();
 }
 
-let avCount = 1;
-let vxAvValues = Array.from({length: nbuckets}, () => 0.0);
-let vyAvValues = Array.from({length: nbuckets}, () => 0.0);
-function drawStatistics() {
-  compute_histogram();
+/** @type {Data} */
+let vxData;
+/** @type {Data} */
+let vyData;
+/** @type {Data} */
+let vxAvData;
+/** @type {Data} */
+let vyAvData;
+function initStatistics() {
+  const params = currentExperiment.params;
 
+  const maxDisplayedValue = computeHistogramHeight(params.nParticles, params.nBuckets, params.histogramWidth);
   const commonData = {
     maxDisplayedValue,
-    gridStepSize: histogramGridStepSize,
-    leftBoundary: -histogram_width,
-    rightBoundary: histogram_width,
+    gridStepSize: computeHistogramGridStepSize(maxDisplayedValue),
+    leftBoundary: -params.histogramWidth,
+    rightBoundary: params.histogramWidth,
+    graph: graph_of_equilibrium_distribution, // For comparision
   }
 
-  /** @type {Data} */
-  const vxData = {
+  vxData = {
     values: [],
     ...commonData,
   }
 
-  /** @type {Data} */
-  const vyData = {
+  vyData = {
     values: [],
     ...commonData,
   }
 
-  for (let i = 0; i < nbuckets; ++i) {
-    vxData.values[i] = bucket_vx(i);
-    vyData.values[i] = bucket_vy(i);
+  vxAvData = {
+    values: Array.from({length: params.nBuckets}, () => 0.0),
+    ...commonData,
   }
 
+  vyAvData = {
+    values: Array.from({length: params.nBuckets}, () => 0.0),
+    ...commonData,
+  }
+}
+
+
+function computeStatistics() {
+  const params = currentExperiment.params;
+  const weight = params.averagingWeight;
+
+  compute_histogram();
+
+  for (let i = 0; i < params.nBuckets; ++i) {
+    const vxi = vxData.values[i] = bucket_vx(i);
+    const vyi = vyData.values[i] = bucket_vy(i);
+
+    vxAvData.values[i] = ((weight-1) * vxAvData.values[i] + vxi) / weight;
+    vyAvData.values[i] = ((weight-1) * vyAvData.values[i] + vyi) / weight;
+  }
+}
+
+function drawStatistics() {
   vxBarChart.draw(vxData);
   vyBarChart.draw(vyData);
-
-  /** @type {Data} */
-  const vxAvData = {
-    values: [],
-    ...commonData,
-  }
-
-  /** @type {Data} */
-  const vyAvData = {
-    values: [],
-    ...commonData,
-  }
-
-  for (let i = 0; i < nbuckets; ++i) {
-    vxAvData.values[i] = ((avCount-1) * vxAvValues[i] + bucket_vx(i)) / avCount;
-    vyAvData.values[i] = ((avCount-1) * vyAvValues[i] + bucket_vy(i)) / avCount;
-
-    vxAvValues[i] = vxAvData.values[i];
-    vyAvValues[i] = vyAvData.values[i];
-  }
-
-  // For comparision
-  vxAvData.graph = vyAvData.graph = graph_of_equilibrium_distribution;
-
-  if (avCount < maxAvCount) {
-    ++avCount;
-  }
 
   vxAvBarChart.draw(vxAvData);
   vyAvBarChart.draw(vyAvData);
 }
 
+// TODO If possible: the amount the particles move within one second should not depend on refresh rate.
+// Take into account natural behaviour for Pause and Resume!
+// If possible be as robust as possible with respect to time reversal.
+let isPaused = true;
 let animateCount = 0;
 function animate() {
-  ++animateCount;
+  const params = currentExperiment.params;
 
-  update_animation(delta_time);
+  update_animation(params.deltaTime);
   paticleCtx.putImageData(imageData, 0, 0);
 
-  if (animateCount % maxAnimateCount === 0) {
+  computeStatistics();
+
+  if (animateCount % params.histogramDelay === 0) {
     drawStatistics();
   }
+  ++animateCount;
 
-  requestAnimationFrame(animate);
+  if (!isPaused) {
+    requestAnimationFrame(animate);
+  }
+}
+
+function onTogglePause() {
+  isPaused = !isPaused;
+
+  if (!isPaused) {
+    btnTogglePause.innerHTML = "Pause";
+    requestAnimationFrame(animate);
+  } else {
+    btnTogglePause.innerHTML = "Resume";
+  }
+}
+
+function onReset() {
+  startFreshAnimation();
 }
 
 function setup_ideal_equilibrium_distribution() {
   const npoints = 200;
+  const params = currentExperiment.params;
 
   // Note on sigma:
-  // Each direction (x and y) has (ideally) equal share of total energy.
+  // Each direction (x and y) has (in equilibrium) equal share of total energy.
   const sigma = Math.sqrt(1/2);
 
   const x = [];
   const y = [];
 
-  const stepSize = 2 * histogram_width / (npoints - 1)
+  const stepSize = 2 * params.histogramWidth / (npoints - 1)
 
   for (let i = 0; i < npoints; ++i) {
-    x[i] = -histogram_width + i*stepSize;
-    y[i] = num_particles * (2*histogram_width/nbuckets) * gauss(x[i], sigma);
+    x[i] = -params.histogramWidth + i*stepSize;
+    y[i] = params.nParticles * (2*params.histogramWidth/params.nBuckets) * gauss(x[i], sigma);
   }
 
   graph_of_equilibrium_distribution.x = x;
@@ -228,12 +217,174 @@ const importObject = {
   },
 };
 
+function initFreshAnimation() {
+  const params = currentExperiment.params;
+  // Important to call this first (like ctor)
+  init_animation(canvas_width, params.nParticles, params.particleRadius, params.nBuckets, params.histogramWidth);
+
+  animateCount = 0;
+
+  // @ts-ignore
+  const nbytes = image_nbytes();
+
+  // @ts-ignore
+  const imageBuffer = image_buffer();
+  imageData = new ImageData(new Uint8ClampedArray(memory.buffer, imageBuffer, nbytes), canvas_width, canvas_width);
+  console.log(`imageBuffer = ${imageBuffer}`);
+
+  setup_initial_distribution();
+  setup_ideal_equilibrium_distribution();
+}
+
+function startFreshAnimation() {
+  try {
+    setParamsFromGui();
+    initStatistics();
+    initBarCharts();
+    initFreshAnimation();
+  } catch (error) {
+    console.log(error.message);
+    infoBox.innerHTML = error.message;
+    isPaused = true;
+    btnTogglePause.innerHTML = "Resume"; // FIXME this is ugly!
+    return;
+  }
+
+  infoBox.innerHTML = "";
+
+  isPaused = true; // important!
+  btnTogglePause.innerHTML = "Resume"; // FIXME this is ugly!
+  requestAnimationFrame(animate);
+}
+
+/** @type {HTMLInputElement} */
+// @ts-ignore
+const nParticlesElement = document.getElementById('nParticles');
+/** @type {HTMLInputElement} */
+// @ts-ignore
+const deltaTimeElement = document.getElementById('deltaTime');
+/** @type {HTMLInputElement} */
+// @ts-ignore
+const particleRadiusElement = document.getElementById('particleRadius');
+/** @type {HTMLInputElement} */
+// @ts-ignore
+const nBucketsElement = document.getElementById('nBuckets');
+/** @type {HTMLInputElement} */
+// @ts-ignore
+const histogramWidthElement = document.getElementById('histogramWidth');
+/** @type {HTMLInputElement} */
+// @ts-ignore
+const histogramDelayElement = document.getElementById('histogramDelay');
+/** @type {HTMLInputElement} */
+// @ts-ignore
+const averagingWeightElement = document.getElementById('averagingWeight');
+
+function setParamsFromGui() {
+  const nParticles = parseFloat(nParticlesElement.value);
+  assertValidInt(nParticles, 1, 5000, 'nParticles');
+  const deltaTime = parseFloat(deltaTimeElement.value);
+  assertValidFloat(deltaTime, 1e-6, 1e+1, 'deltaTime');
+  const particleRadius = parseFloat(particleRadiusElement.value);
+  assertValidFloat(particleRadius, 1e-4, 0.5, 'particleRadius'); // Note: side length of canvas is 1.0
+  const nBuckets = parseFloat(nBucketsElement.value);
+  assertValidInt(nBuckets, 1, 1000, 'nBuckets');
+  const histogramWidth = parseFloat(histogramWidthElement.value);
+  assertValidFloat(histogramWidth, 1e-1, 10.0, 'histogramWidth');
+  const histogramDelay = parseFloat(histogramDelayElement.value);
+  assertValidInt(histogramDelay, 1, 120, 'histogramDelay');
+  const averagingWeight = parseFloat(averagingWeightElement.value);
+  assertValidInt(averagingWeight, 1, 1e4, 'averagingWeight');
+
+  // Set the values
+  const params = currentExperiment.params;
+  params.nParticles = nParticles;
+  params.deltaTime = deltaTime;
+  params.nBuckets = nBuckets;
+  params.particleRadius = particleRadius;
+  params.histogramWidth = histogramWidth;
+  params.histogramDelay = histogramDelay;
+  params.averagingWeight = averagingWeight;
+}
+
+function initBarCharts() {
+  const params = currentExperiment.params;
+
+  ///** @type {Partial<BarChartOptions>} */
+  const commonBarChartOptions = {
+    nbuckets: params.nBuckets,
+    xLabel: '(units of std-dev of v_tot)',
+  }
+  /** @type {BarChartOptions} */
+  const vxBarChartOptions = {
+    canvas: vxCanvas,
+    title: 'Distribution of v_x',
+    ...commonBarChartOptions,
+  }
+  /** @type {BarChartOptions} */
+  const vyBarChartOptions = {
+    canvas: vyCanvas,
+    title: 'Distribution of v_y',
+    ...commonBarChartOptions,
+  }
+  /** @type {BarChartOptions} */
+  const vxAvBarChartOptions = {
+    canvas: vxAvCanvas,
+    title: 'Averaged distr. of v_x',
+    ...commonBarChartOptions,
+  }
+  /** @type {BarChartOptions} */
+  const vyAvBarChartOptions = {
+    canvas: vyAvCanvas,
+    title: 'Averaged distr. of v_y',
+    ...commonBarChartOptions,
+  }
+
+  vxBarChart = new BarChart(vxBarChartOptions);
+  vyBarChart = new BarChart(vyBarChartOptions);
+  vxAvBarChart = new BarChart(vxAvBarChartOptions);
+  vyAvBarChart = new BarChart(vyAvBarChartOptions);
+}
+
+
+/**
+ * @param {Params} params
+ */
+function pushParamsToGui(params) {
+  nParticlesElement.value = params.nParticles.toString();
+  deltaTimeElement.value = params.deltaTime.toString();
+  particleRadiusElement.value = params.particleRadius.toString();
+  nBucketsElement.value = params.nBuckets.toString();
+  histogramWidthElement.value = params.histogramWidth.toString();
+  histogramDelayElement.value = params.histogramDelay.toString();
+  averagingWeightElement.value = params.averagingWeight.toString();
+}
+
+
+function setCurrentExperiment(name) {
+  if (experiments[name] !== undefined) {
+    currentExperiment = experiments[name];
+    pushParamsToGui(currentExperiment.params);
+    onReset();
+  }
+}
+
+
+// Setup select-experiment
+(function () {
+  for (let name of Object.keys(experiments)) {
+    const option = document.createElement('option');
+    option.text = name;
+    option.value = name;
+    experimentSelect.add(option);
+  }
+  experimentSelect.value = Object.keys(experiments)[0];
+  setCurrentExperiment(experimentSelect.value);
+})();
+
+
 WebAssembly.instantiateStreaming(fetch('index.wasm'), importObject)
   .then((obj) => {
-    // Important to call this first (like ctor)
-    // @ts-ignore
-    obj.instance.exports.init_animation(canvas_width, num_particles, particle_radius, nbuckets, histogram_width);
-
+    init_animation = obj.instance.exports.init_animation;
     // @ts-ignore
     memory = obj.instance.exports.memory;
     update_animation = obj.instance.exports.update_animation;
@@ -243,18 +394,9 @@ WebAssembly.instantiateStreaming(fetch('index.wasm'), importObject)
     bucket_vx = obj.instance.exports.bucket_vx;
     bucket_vy = obj.instance.exports.bucket_vy;
     vsquare = obj.instance.exports.vsquare;
+    image_buffer = obj.instance.exports.image_buffer;
+    image_nbytes = obj.instance.exports.image_nbytes;
 
-    // @ts-ignore
-    const nbytes = obj.instance.exports.image_nbytes();
-
-    // @ts-ignore
-    const image_buffer = obj.instance.exports.image_buffer();
-    imageData = new ImageData(new Uint8ClampedArray(memory.buffer, image_buffer, nbytes), canvas_width, canvas_width);
-    console.log(`image_buffer = ${image_buffer}`);
-
-    setup_initial_distribution();
-    setup_ideal_equilibrium_distribution();
-
-    requestAnimationFrame(animate);
+    startFreshAnimation();
   })
   .catch((e) => console.log(e));

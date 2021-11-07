@@ -143,7 +143,6 @@ void Animator::draw_particle(double x, double y, double radius) {
 
 
 // TODO make this static?
-bool animator_is_initialized = false;
 Animator animator;
 
 
@@ -151,21 +150,19 @@ void init_animation(
   // Display parameters
   uint pixel_width,
   // Physics parameters
-  uint num_particles,
+  uint nparticles,
   double particle_radius,
   // Other parameters
   uint nbuckets,
   double histogram_width
 ) {
-  if (animator_is_initialized) {
-    trap("It is not allowed to call init_animation twice.");
-  }
+  // This is needed for repeated calls to init_animation:
+  clear_memory();
 
-  Collider collider{num_particles, particle_radius, nbuckets, histogram_width};
+  Collider collider{nparticles, particle_radius, nbuckets, histogram_width};
 
   animator = Animator(pixel_width);
   animator.collider() = collider; // TODO is this correct handling?
-  animator_is_initialized = true;
 }
 
 
